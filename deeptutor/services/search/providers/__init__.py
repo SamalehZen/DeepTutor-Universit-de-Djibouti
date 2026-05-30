@@ -6,16 +6,13 @@ This module manages the registration and retrieval of search providers.
 
 from typing import Type
 
-from deeptutor.services.config import get_env_store
-
 from ..base import BaseSearchProvider
 
 _PROVIDERS: dict[str, Type[BaseSearchProvider]] = {}
 _DEPRECATED_UNSUPPORTED: dict[str, str] = {
-    "exa": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity.",
-    "serper": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity.",
-    "baidu": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity.",
-    "openrouter": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity.",
+    "exa": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity/serper.",
+    "baidu": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity/serper.",
+    "openrouter": "Deprecated; use brave/tavily/jina/searxng/duckduckgo/perplexity/serper.",
 }
 
 
@@ -132,7 +129,7 @@ def get_providers_info() -> list[dict]:
 
 def get_default_provider(**kwargs) -> BaseSearchProvider:
     """
-    Get the default provider based on SEARCH_PROVIDER env var.
+    Get the default provider from Settings > Catalog.
 
     Args:
         **kwargs: Arguments to pass to provider constructor.
@@ -140,7 +137,9 @@ def get_default_provider(**kwargs) -> BaseSearchProvider:
     Returns:
         BaseSearchProvider: Default provider instance.
     """
-    provider_name = get_env_store().get("SEARCH_PROVIDER", "brave").lower()
+    from deeptutor.services.config import resolve_search_runtime_config
+
+    provider_name = resolve_search_runtime_config().provider.lower()
     if provider_name in _DEPRECATED_UNSUPPORTED:
         provider_name = "duckduckgo"
     return get_provider(provider_name, **kwargs)
@@ -148,9 +147,9 @@ def get_default_provider(**kwargs) -> BaseSearchProvider:
 
 def _register_builtin_providers() -> None:
     # Import for side effects (register_provider decorators).
-    from . import brave, duckduckgo, jina, perplexity, searxng, tavily
+    from . import brave, duckduckgo, jina, perplexity, searxng, serper, tavily
 
-    _ = (brave, duckduckgo, jina, perplexity, searxng, tavily)
+    _ = (brave, duckduckgo, jina, perplexity, searxng, serper, tavily)
 
 
 _register_builtin_providers()

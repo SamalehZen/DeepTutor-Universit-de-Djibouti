@@ -1,73 +1,30 @@
 from __future__ import annotations
 
 import importlib.util
-import locale
 from pathlib import Path
-import sys
-import types
+from unittest import mock
 
 
-def _load_start_tour_module():
+def _load_module():
     module_path = Path(__file__).resolve().parents[2] / "scripts" / "start_tour.py"
-
-    cli_kit = types.ModuleType("_cli_kit")
-    for name in (
-        "accent",
-        "banner",
-        "bold",
-        "confirm",
-        "countdown",
-        "dim",
-        "log_error",
-        "log_info",
-        "log_success",
-        "log_warn",
-        "select",
-        "step",
-        "text_input",
-    ):
-        setattr(cli_kit, name, lambda *args, **kwargs: None)
-
-    deeptutor_pkg = types.ModuleType("deeptutor")
-    services_pkg = types.ModuleType("deeptutor.services")
-    config_module = types.ModuleType("deeptutor.services.config")
-    config_module.get_config_test_runner = lambda: None
-    config_module.get_env_store = lambda: None
-    config_module.get_model_catalog_service = lambda: None
-
-    original_modules = {
-        "_cli_kit": sys.modules.get("_cli_kit"),
-        "deeptutor": sys.modules.get("deeptutor"),
-        "deeptutor.services": sys.modules.get("deeptutor.services"),
-        "deeptutor.services.config": sys.modules.get("deeptutor.services.config"),
-    }
-
-    services_pkg.config = config_module
-    deeptutor_pkg.services = services_pkg
-    sys.modules["_cli_kit"] = cli_kit
-    sys.modules["deeptutor"] = deeptutor_pkg
-    sys.modules["deeptutor.services"] = services_pkg
-    sys.modules["deeptutor.services.config"] = config_module
-
-    try:
-        spec = importlib.util.spec_from_file_location("start_tour_under_test", module_path)
-        assert spec and spec.loader
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module
-    finally:
-        for module_name, original_module in original_modules.items():
-            if original_module is None:
-                sys.modules.pop(module_name, None)
-            else:
-                sys.modules[module_name] = original_module
+    spec = importlib.util.spec_from_file_location("start_tour_under_test", module_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
-def test_stream_text_kwargs_use_best_effort_decoding() -> None:
-    start_tour = _load_start_tour_module()
+def test_start_tour_parser_supports_cli_and_home(tmp_path: Path) -> None:
+    start_tour = _load_module()
+    args = start_tour.build_parser().parse_args(["--cli", "--home", str(tmp_path)])
 
-    kwargs = start_tour._stream_text_kwargs()
+    assert args.cli is True
+    assert args.home == tmp_path
 
-    assert kwargs["text"] is True
-    assert kwargs["errors"] == "replace"
-    assert kwargs["encoding"] == locale.getpreferredencoding(False)
+
+def test_start_tour_delegates_to_init_command(tmp_path: Path) -> None:
+    start_tour = _load_module()
+    with mock.patch.object(start_tour, "run_init") as run_init:
+        start_tour.main(["--cli", "--home", str(tmp_path)])
+
+    run_init.assert_called_once_with(cli_only=True, home=tmp_path)

@@ -15,6 +15,7 @@ from typing import Any, AsyncGenerator
 
 from deeptutor.agents.base_agent import BaseAgent
 from deeptutor.runtime.registry.tool_registry import get_tool_registry
+from deeptutor.services.prompt.language import append_language_directive
 
 
 class ChatAgent(BaseAgent):
@@ -245,15 +246,16 @@ class ChatAgent(BaseAgent):
         """
         messages = []
 
-        # System prompt
-        system_prompt = self.get_prompt("system", "You are a helpful AI assistant.")
-        messages.append({"role": "system", "content": system_prompt})
-
-        # Add context if available
+        system_parts = [
+            append_language_directive(
+                self.get_prompt("system", "You are a helpful AI assistant."),
+                self.language,
+            )
+        ]
         if context:
             context_template = self.get_prompt("context_template", "Reference context:\n{context}")
-            context_msg = context_template.format(context=context)
-            messages.append({"role": "system", "content": context_msg})
+            system_parts.append(context_template.format(context=context))
+        messages.append({"role": "system", "content": "\n\n".join(system_parts)})
 
         # Add conversation history
         for msg in history:
@@ -404,6 +406,7 @@ class ChatAgent(BaseAgent):
         )
 
         if stream:
+
             async def stream_generator():
                 full_response = ""
                 async for chunk in self.generate_stream(messages, attachments=attachments):
